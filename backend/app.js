@@ -4,6 +4,7 @@ const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const applicationRoutes = require("./routes/applicationRoutes");
 const authRoutes = require("./routes/authRoutes");
+const kycRoutes = require("./routes/kycRoutes");
 
 const app = express();
 app.use(express.json());
@@ -27,5 +28,6 @@ app.get("/", (req, res) => {
 
 app.use("/", applicationRoutes);
 app.use("/", authRoutes);
+app.use("/", kycRoutes);
 
 module.exports = app;

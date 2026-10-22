@@ -213,7 +213,13 @@ const applicationsSchema = new mongoose.Schema(
     kyc: {
       status: {
         type: String,
-        enum: ["Pending", "Approved", "Rejected"],
+        enum: [
+          "Pending",
+          "Under Review",
+          "Correction Requested",
+          "Approved",
+          "Rejected",
+        ],
         default: "Pending",
         required: true,
       },
@@ -244,6 +250,10 @@ const applicationsSchema = new mongoose.Schema(
         trim: true,
         maxlength: [500, "Comment cannot exceed 500 characters"],
         default: null,
+      },
+      requestedDocuments: {
+        type: [String],
+        default: [],
       },
     },
     applicationReviewedBy: {
