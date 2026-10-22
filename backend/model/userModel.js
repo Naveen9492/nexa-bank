@@ -71,14 +71,13 @@ const userSchema = new mongoose.Schema(
     },
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Users",
       default: null,
     },
     application: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Applications",
       default: null,
-      index: true,
     },
     emailVerifiedAt: {
       type: Date,
@@ -105,4 +104,14 @@ userSchema.pre("validate", function () {
     );
   }
 });
+userSchema.index(
+  { application: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      role: "customer",
+      application: { $type: "objectId" },
+    },
+  },
+);
 module.exports = mongoose.model("User", userSchema);

@@ -363,43 +363,49 @@ const approveApplication = async (req, res) => {
         throw error;
       }
 
+      const existingBankAccount = await BankAccount.findOne({
+        application: application._id,
+      }).session(session);
+
+      if (existingBankAccount) {
+        const error = new Error(
+          "A bank account already exists for this application",
+        );
+        error.statusCode = 409;
+        throw error;
+      }
+
       const temporarySecret = crypto.randomBytes(32).toString("hex");
       const hashedPassword = await bcrypt.hash(temporarySecret, 12);
 
-      const [customer] = await User.create(
-        [
-          {
-            firstName: application.firstName,
-            lastName: application.lastName,
-            email: application.email,
-            phone: application.phone,
-            password: hashedPassword,
-            role: "customer",
-            status: "invited",
-            application: application._id,
-            createdBy: req.user?._id ?? null,
-          },
-        ],
-        { session },
-      );
+      const customer = new User({
+        firstName: application.firstName,
+        lastName: application.lastName,
+        email: application.email,
+        phone: application.phone,
+        password: hashedPassword,
+        role: "customer",
+        status: "invited",
+        application: application._id,
+        createdBy: req.user?._id ?? null,
+      });
+      await customer.save({ session });
 
-      const [bankAccount] = await BankAccount.create(
-        [
-          {
-            customer: customer._id,
-            application: application._id,
-            accountType: application.accountType,
-            status: "Pending",
-            currency: "INR",
-            availableBalancePaise: 0,
-            heldBalancePaise: 0,
-            createdBy: req.user?._id ?? null,
-          },
-        ],
-        { session },
-      );
+      const bankAccount = new BankAccount({
+        customer: customer._id,
+        application: application._id,
+        accountType: application.accountType,
+        status: "Pending",
+        currency: "INR",
+        availableBalancePaise: 0,
+        heldBalancePaise: 0,
+        createdBy: req.user?._id ?? null,
+      });
+      await bankAccount.save({ session });
 
       application.applicationStatus = "Approved";
+      application.applicationReviewedBy = req.user?._id ?? null;
+      application.applicationReviewedAt = new Date();
       await application.save({ session });
 
       result = {
@@ -416,6 +422,7 @@ const approveApplication = async (req, res) => {
           status: bankAccount.status,
           currency: bankAccount.currency,
         },
+        action: "Reset your password to login and activate Bank Account",
       };
     });
     return res.status(200).json({
@@ -448,8 +455,6 @@ const approveApplication = async (req, res) => {
       });
     }
 
-    console.error(error);
-
     return res.status(500).json({
       success: false,
       message: "Internal server error",
@@ -459,9 +464,174 @@ const approveApplication = async (req, res) => {
   }
 };
 
+const rejectApplication = async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+    const { comment } = req.body;
+
+    if (!applicationId?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "ApplicationId is required",
+      });
+    }
+
+    if (typeof comment !== "string" || !comment.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid comment is required",
+      });
+    }
+
+    if (comment.trim().length > 500) {
+      return res.status(400).json({
+        success: false,
+        message: "Comment cannot exceed 500 characters",
+      });
+    }
+
+    const application = await Applications.findOneAndUpdate(
+      {
+        applicationId,
+        applicationStatus: { $in: ["Pending", "Under Review"] },
+      },
+      {
+        $set: {
+          applicationStatus: "Rejected",
+          reviewComment: comment.trim(),
+          applicationReviewedBy: req.user?._id ?? null,
+          applicationReviewedAt: new Date(),
+        },
+      },
+      {
+        returnDocument: "after",
+        runValidators: true,
+      },
+    );
+
+    if (!application) {
+      const existingApplication = await Applications.findOne({
+        applicationId,
+      }).select("applicationStatus");
+
+      if (!existingApplication) {
+        return res.status(404).json({
+          success: false,
+          message: "Application not found",
+        });
+      }
+
+      return res.status(409).json({
+        success: false,
+        message: `Application cannot be rejected because its status is ${existingApplication.applicationStatus}`,
+      });
+    }
+    return res.status(200).json({
+      success: true,
+      message: "Application rejected successfully",
+      data: {
+        applicationId: application.applicationId,
+        applicationStatus: application.applicationStatus,
+        reviewComment: application.reviewComment,
+        applicationReviewedBy: application.applicationReviewedBy,
+        applicationReviewedAt: application.applicationReviewedAt,
+      },
+    });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      const firstError = Object.values(error.errors)[0];
+
+      return res.status(400).json({
+        success: false,
+        message: firstError.message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
+const resubmitApplication = async (req, res) => {
+  try {
+    const { applicationId } = req.params;
+    const { email, phone } = req.body;
+
+    if (!applicationId?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "ApplicationId is required",
+      });
+    }
+
+    if (typeof email !== "string" || !email.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Email is required",
+      });
+    }
+
+    if (typeof phone !== "string" || !phone.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Phone number is required",
+      });
+    }
+
+    const application = await Applications.findOne({
+      applicationId: applicationId.trim(),
+      email: email.trim().toLowerCase(),
+      phone: phone.trim(),
+      applicationStatus: "Rejected",
+    });
+
+    if (!application) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Application details are invalid or the application is not eligible for resubmission",
+      });
+    }
+
+    application.applicationStatus = "Pending";
+    application.reviewComment = null;
+    application.applicationReviewedBy = null;
+    application.applicationReviewedAt = null;
+
+    await application.save();
+
+    return res.status(200).json({
+      success: true,
+      message: "Application resubmitted successfully",
+      data: {
+        applicationId: application.applicationId,
+        applicationStatus: application.applicationStatus,
+      },
+    });
+  } catch (error) {
+    if (error.name === "ValidationError") {
+      const firstError = Object.values(error.errors)[0];
+
+      return res.status(400).json({
+        success: false,
+        message: firstError.message,
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
 module.exports = {
   submitApplication,
   getAllApplications,
   getApplicationById,
   approveApplication,
+  rejectApplication,
+  resubmitApplication,
 };

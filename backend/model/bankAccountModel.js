@@ -20,7 +20,7 @@ const bankAccountSchema = new mongoose.Schema(
 
     customer: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Users",
       required: [true, "Customer is required"],
       immutable: true,
       index: true,
@@ -113,4 +113,4 @@ bankAccountSchema.pre("validate", function () {
     );
   }
 });
-module.exports = mongoose.model("BankAccount", bankAccountSchema);
+module.exports = mongoose.model("BankAccounts", bankAccountSchema);

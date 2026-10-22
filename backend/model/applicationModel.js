@@ -228,23 +228,39 @@ const applicationsSchema = new mongoose.Schema(
         default: false,
       },
 
-      approvedBy: {
+      kycReviewedBy: {
         type: require("mongoose").Schema.Types.ObjectId,
         ref: "User",
         default: null,
       },
 
-      approvedAt: {
+      kycReviewedAt: {
         type: Date,
         default: null,
       },
 
-      rejectionReason: {
+      kycComment: {
         type: String,
         trim: true,
-        maxlength: [500, "Rejection reason cannot exceed 500 characters"],
+        maxlength: [500, "Comment cannot exceed 500 characters"],
         default: null,
       },
+    },
+    applicationReviewedBy: {
+      type: require("mongoose").Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    applicationReviewedAt: {
+      type: Date,
+      default: null,
+    },
+    reviewComment: {
+      type: String,
+      trim: true,
+      maxlength: [500, "Comment cannot exceed 500 characters"],
+      default: null,
     },
   },
   {
@@ -258,4 +274,4 @@ applicationsSchema.index({
 });
 applicationsSchema.index({ createdAt: -1 });
 
-module.exports = mongoose.model("Applications", applicationsSchema);
+module.exports = mongoose.model("Application", applicationsSchema);
