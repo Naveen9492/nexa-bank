@@ -21,7 +21,7 @@ const customerMiddleware = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    if (decoded.role !== "user") {
+    if (decoded.role !== "customer") {
       return res.status(403).json({
         success: false,
         message: "Access denied. users only.",

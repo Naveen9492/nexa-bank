@@ -412,11 +412,13 @@ const approveApplication = async (req, res) => {
         applicationId: application.applicationId,
         applicationStatus: application.applicationStatus,
         customer: {
+          _id: customer._id,
           userId: customer.userId,
           email: customer.email,
           status: customer.status,
         },
         bankAccount: {
+          _id: bankAccount._id,
           accountNumber: bankAccount.accountNumber,
           accountType: bankAccount.accountType,
           status: bankAccount.status,

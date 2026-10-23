@@ -20,7 +20,7 @@ const bankAccountSchema = new mongoose.Schema(
 
     customer: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "Users",
+      ref: "User",
       required: [true, "Customer is required"],
       immutable: true,
       index: true,

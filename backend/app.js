@@ -5,6 +5,7 @@ const rateLimit = require("express-rate-limit");
 const applicationRoutes = require("./routes/applicationRoutes");
 const authRoutes = require("./routes/authRoutes");
 const kycRoutes = require("./routes/kycRoutes");
+const bankAccountRoutes = require("./routes/bankAccountRoutes");
 
 const app = express();
 app.use(express.json());
@@ -29,5 +30,6 @@ app.get("/", (req, res) => {
 app.use("/", applicationRoutes);
 app.use("/", authRoutes);
 app.use("/", kycRoutes);
+app.use("/", bankAccountRoutes);
 
 module.exports = app;
