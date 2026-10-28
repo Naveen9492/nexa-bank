@@ -874,9 +874,77 @@ const getTransactions = async (req, res) => {
   }
 };
 
+const getTransactionById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const account = await BankAccount.findOne({
+      customer: req.user._id,
+      status: "Active",
+    })
+      .select("_id")
+      .lean();
+
+    if (!account) {
+      return res.status(404).json({
+        success: false,
+        message: "No active bank account found for this customer",
+      });
+    }
+
+    const transaction = await Transactions.findOne({
+      transactionId: id,
+      $or: [{ fromAccount: account._id }, { toAccount: account._id }],
+    })
+      .select(
+        "transactionId fromAccount toAccount initiatedBy transactionType amountPaise feePaise currency status description reference fromBalanceBeforePaise fromBalanceAfterPaise toBalanceBeforePaise toBalanceAfterPaise relatedTransaction createdAt processedAt failureReason",
+      )
+      .populate({
+        path: "fromAccount",
+        select: "accountNumber accountType customer",
+        populate: {
+          path: "customer",
+          select: "userId firstName lastName",
+        },
+      })
+      .populate({
+        path: "toAccount",
+        select: "accountNumber accountType customer",
+        populate: {
+          path: "customer",
+          select: "userId firstName lastName",
+        },
+      })
+      .lean();
+
+    if (!transaction) {
+      return res.status(404).json({
+        success: false,
+        message: "Transaction not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Transaction fetched successfully",
+      data: {
+        transaction,
+      },
+    });
+  } catch (error) {
+    console.error("Get transaction by ID error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal server error",
+    });
+  }
+};
+
 module.exports = {
   depositMoney,
   withdrawMoney,
   transferMoney,
   getTransactions,
+  getTransactionById,
 };
